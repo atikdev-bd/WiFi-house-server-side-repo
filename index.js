@@ -23,12 +23,59 @@ const client = new MongoClient(uri, {
 const run = async () => {
   try {
     const serviceCollection = client.db("brodBrand").collection("services");
+    const reviewCollection = client.db("brodBrand").collection("review");
 
     ///explore jwt token ///
     app.post("/jwt", (req, res) => {
       const user = req.body;
       const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET);
       res.send({ token });
+    });
+
+    /// add service using post method ///
+    app.post("/add", async (req, res) => {
+      const info = req.body;
+      const result = await serviceCollection.insertOne(info);
+
+      if (acknowledged) {
+        res.send({
+          status: true,
+          massage: "Data added successfully",
+        });
+      } else {
+        status: false;
+        massage: "Something wrong";
+      }
+    });
+
+    /// add review using post and store database///
+    app.post("/review", async (req, res) => {
+      const review = req.body;
+      const result = await reviewCollection.insertOne(review);
+      console.log(result);
+    });
+
+    /// Delete items ////
+    app.delete('/review/:id', async(req, res)=>{
+      const id = req.params.id
+      console.log(id)
+      const query = {_id : ObjectId(id)}
+      const result = await reviewCollection.deleteOne(query)
+      res.send(result)
+    })
+
+    /// get data using query with email ///
+    app.get("/reviews", async (req, res) => {
+      let query = {};
+      if (req.query.email) {
+        query = {
+          email: req.query.email,
+        };
+      }
+
+      const cursor = reviewCollection.find(query);
+      const result = await cursor.toArray();
+      res.send(result);
     });
 
     /// read a 3 data use limit///
@@ -49,10 +96,8 @@ const run = async () => {
     //get data with id///
     app.get("/service/:id", async (req, res) => {
       const id = req.params.id;
-      console.log(id);
       const query = { _id: ObjectId(id) };
       const service = await serviceCollection.findOne(query);
-      console.log(service);
       res.send(service);
     });
   } finally {
