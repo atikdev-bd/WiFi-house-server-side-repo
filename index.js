@@ -125,7 +125,13 @@ const run = async () => {
     });
     /// read a all service with use query ///
 
-   
+    app.get("/allService", async (req, res) => {
+      const query = {};
+      const cursor = serviceCollection.find(query);
+      const allService = await cursor.toArray();
+      const result = allService.reverse()
+      res.send(result);
+    });
     //get data with id///
     app.get("/service/:id", async (req, res) => {
       const id = req.params.id;
