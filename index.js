@@ -13,7 +13,7 @@ app.use(express.json());
 //Mongodb implement here \\\
 
 const uri = `mongodb+srv://${process.env.BROD_BRAND}:${process.env.SECRET_KEY}@cluster0.h7epoo8.mongodb.net/?retryWrites=true&w=majority`;
-console.log(uri);
+
 const client = new MongoClient(uri, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
@@ -32,12 +32,30 @@ const run = async () => {
       res.send({ token });
     });
 
+    ///gwt function ///
+    const verifyJwt = (req, res, next)=>{
+      const authHeader = req.headers.authorization
+      if(!authHeader){
+        return res.status(401).send({massage : 'Unauthorized Access'})
+
+      }
+      const token = authHeader.split(' ')[1]
+      jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (error, decoded)=>{
+            if(error){
+              return res.status(403).send({massage : 'Unauthorized Access'})
+           }
+           req.decoded = decoded
+           next()
+
+      })
+
+    }
+
     /// add service using post method ///
     app.post("/add", async (req, res) => {
       const info = req.body;
       const result = await serviceCollection.insertOne(info);
-
-      if (acknowledged) {
+      if (result?.acknowledged) {
         res.send({
           status: true,
           massage: "Data added successfully",
@@ -52,20 +70,39 @@ const run = async () => {
     app.post("/review", async (req, res) => {
       const review = req.body;
       const result = await reviewCollection.insertOne(review);
-      console.log(result);
+      res.send(result)
     });
 
     /// Delete items ////
     app.delete('/review/:id', async(req, res)=>{
       const id = req.params.id
-      console.log(id)
+     
       const query = {_id : ObjectId(id)}
       const result = await reviewCollection.deleteOne(query)
       res.send(result)
     })
 
+    //// update doc with patch ///
+    app.patch('/review/:id', async(req, res)=>{
+            const id = req.params.id 
+            const status = req.body.status
+            const query = {_id : ObjectId(id)}
+            const updateDoc = {
+              $set : {
+              status : status
+              }
+            }
+            const result = await reviewCollection.updateOne(query, updateDoc)
+            res.send(result)
+    })
+
     /// get data using query with email ///
-    app.get("/reviews", async (req, res) => {
+    app.get("/reviews", verifyJwt, async (req, res) => {
+      const decoded = req.decoded
+     
+      if(decoded.email !== req.query.email){
+        es.status(401).send({massage : 'Unauthorized Access'})
+      }
       let query = {};
       if (req.query.email) {
         query = {
@@ -75,6 +112,7 @@ const run = async () => {
 
       const cursor = reviewCollection.find(query);
       const result = await cursor.toArray();
+      const sort = result.reverse()
       res.send(result);
     });
 
@@ -87,12 +125,7 @@ const run = async () => {
     });
     /// read a all service with use query ///
 
-    app.get("/allService", async (req, res) => {
-      const query = {};
-      const cursor = serviceCollection.find(query);
-      const allService = await cursor.toArray();
-      res.send(allService);
-    });
+   
     //get data with id///
     app.get("/service/:id", async (req, res) => {
       const id = req.params.id;
